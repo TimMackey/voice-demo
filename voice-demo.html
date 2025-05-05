@@ -1,0 +1,218 @@
+<!DOCTYPE
+    html>
+<html
+    lang="en">
+
+<head>
+    <meta
+        charset="UTF-8" />
+    <title>
+        Voice
+        to
+        Assistant
+    </title>
+
+    <!-- <link rel="icon" type="image/x-icon" href="favicon.ico" /> -->
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-top: 1rem;
+        }
+
+        button {
+            margin-top: 1rem;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        .label {
+            margin-top: 1.5rem;
+            font-weight: bold;
+        }
+
+        .flashing-status {
+            padding-top: 10px;
+            color: red;
+            font-weight: bold;
+            display: none;
+            animation: flash 1s infinite;
+        }
+
+        @keyframes flash {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🎙️
+        Voice
+        Input
+        →
+        GradeScan
+        AI
+        Assistant
+    </h2>
+
+    <div
+        class="label">
+        Your
+        Speech
+        Input:
+    </div>
+    <textarea
+        id="userMessage"
+        placeholder="Waiting for voice..."></textarea>
+
+    <button
+        id="startBtn">🎤
+        Start
+        Listening</button>
+    <button
+        id="stopAudioBtn">🛑
+        Stop
+        Audio</button>
+
+    <div id="statusMessage"
+        class="flashing-status">
+        Composing
+        answer...
+    </div>
+
+    <div
+        class="label">
+        Assistant
+        Response:
+    </div>
+    <div id="assistantReplyBox"
+        style="
+        height: 240px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 10px;
+        overscroll-behavior-y: contain;
+      ">
+    </div>
+
+    <script>
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        const userMessageBox = document.getElementById("userMessage");
+        const assistantReplyBox = document.getElementById("assistantReplyBox");
+        const startBtn = document.getElementById("startBtn");
+        const stopAudioBtn = document.getElementById("stopAudioBtn");
+
+        let source = "Voice Demo";
+
+        if (!SpeechRecognition) {
+            alert("Speech recognition is not supported in this browser.");
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = "en-US";
+
+            startBtn.addEventListener("click", () => {
+                recognition.start();
+                userMessageBox.value = "";
+                assistantReplyBox.innerHTML = "";
+                console.log("Listening...");
+            });
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.trim();
+                userMessageBox.value = transcript;
+                console.log("Heard:", transcript);
+                sendMessage(transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+            };
+
+            recognition.onend = () => {
+                console.log("Recognition ended");
+            };
+        }
+
+        // Stop audio playback
+        stopAudioBtn.addEventListener("click", () => {
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel(); // Stops the current speech
+                console.log("Audio response stopped.");
+            }
+        });
+
+        function sendMessage(userMessage) {
+            if (!userMessage.trim()) return;
+
+            const payload = {
+                UserMessage: userMessage,
+                Source: source,
+            };
+
+            const apiUrl =
+                "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost";
+
+            // Show status message
+            document.getElementById("statusMessage").style.display = "block";
+
+            fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            })
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(errorData.result || "API error");
+                    }
+                    return res.json();
+                })
+                .then((response) => {
+                    const jsonResponse = JSON.parse(response.result.result);
+
+                    const html = jsonResponse.choices[0].message.content.trim();
+                    assistantReplyBox.innerHTML = html;
+
+                    // Force all <a> tags to open in a new tab
+                    assistantReplyBox.querySelectorAll("a").forEach(a => {
+                        a.setAttribute("target", "_blank");
+                        a.setAttribute("rel", "noopener noreferrer");
+                    });
+
+                    // Speak the answer
+                    const utterance = new SpeechSynthesisUtterance(response.result.plainText);
+                    window.speechSynthesis.speak(utterance);
+                })
+                .catch((error) => {
+                    console.error("API Error:", error.message);
+                    assistantReplyBox.innerHTML = "Error: " + error.message;
+                })
+                .finally(() => {
+                    // Hide status message after response or error
+                    document.getElementById("statusMessage").style.display = "none";
+                });
+        }
+    </script>
+</body>
+
+</html>

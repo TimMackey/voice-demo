@@ -8,3 +8,6 @@ How to use voice-demo
 7. you should see "Serving HTTP on :: port 8000 (http://[::]:8000/) ..."
 8. in Windows Explorer right-click 'voice-demo.html' and select 'Open'
 9. on the page, click "Start Listening".  speak.  ask a question.
+
+
+This HTML file was created and debugged by "vibe" coding on ChatGPT.

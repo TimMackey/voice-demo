@@ -7,7 +7,8 @@ How to use voice-demo
 6. enter "python -m http.server 8000"
 7. you should see "Serving HTTP on :: port 8000 (http://[::]:8000/) ..."
 8. in Windows Explorer right-click 'voice-demo.html' and select 'Open'
-9. on the page, click "Start Listening".  speak.  ask a question.
+9. with Chrome browser your browser url should be something like file:///C:/Users/[User]/some_path/voice-demo/voice-demo.html
+10. on the page, click "Start Listening".  speak.  ask a question.  wait a few seconds for an answer.
 
 
 This HTML file was created and debugged by "vibe" coding on ChatGPT.

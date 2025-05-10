@@ -75,9 +75,13 @@
         Speech
         Input:
     </div>
+
     <textarea
         id="userMessage"
-        placeholder="Waiting for voice..."></textarea>
+        placeholder="Waiting for voice..."
+        rows="1"
+        style="height: 1.5em; line-height: 1.5em; overflow: hidden; resize: none;">
+    </textarea>
 
     <button
         id="startBtn">🎤
@@ -107,6 +111,7 @@
         padding: 10px;
         margin-top: 10px;
         overscroll-behavior-y: contain;
+        resize: vertical; 
       ">
     </div>
 

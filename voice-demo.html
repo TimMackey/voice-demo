@@ -105,7 +105,7 @@
     </div>
     <div id="assistantReplyBox"
         style="
-        height: 240px;
+        height: 800px;
         overflow-y: auto;
         border: 1px solid #ccc;
         padding: 10px;
@@ -189,7 +189,7 @@
                 .then(async (res) => {
                     if (!res.ok) {
                         const errorData = await res.json();
-                        throw new Error(errorData.result || "API error");
+                        throw new Error(errorData.result.plainText);
                     }
                     return res.json();
                 })
@@ -210,8 +210,8 @@
                     window.speechSynthesis.speak(utterance);
                 })
                 .catch((error) => {
-                    console.error("API Error:", error.message);
-                    assistantReplyBox.innerHTML = "Error: " + error.message;
+                    console.error("API Error:", error);
+                    assistantReplyBox.innerHTML = error;
                 })
                 .finally(() => {
                     // Hide status message after response or error

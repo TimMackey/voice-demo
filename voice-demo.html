@@ -4,23 +4,10 @@
         <script crossorigin="anonymous" src="https://kit.fontawesome.com/c0a21d601f.js"></script>
         <meta charset="UTF-8" />
         <title>Voice to Assistant</title>
-
         <style>
             body {
                 font-family: Arial, sans-serif;
                 padding: 2rem;
-            }
-
-            textarea {
-                width: 100%;
-                height: 80px;
-                margin-top: 1rem;
-            }
-
-            button {
-                margin-top: 1rem;
-                padding: 10px 20px;
-                font-size: 16px;
             }
 
             .label {
@@ -43,36 +30,48 @@
                 animation: flash 2s infinite;
             }
 
-            .controls-row {
+            .input-row {
                 display: flex;
-                align-items: center;
-                gap: 0.5rem; /* optional spacing between items */
+                align-items: stretch; /* ensures both children match height */
+                gap: 0.4rem;
+                margin-top: 1rem;
             }
 
             #micIndicator {
-                font-size: 24px;
-                z-index: 1000;
-                display: inline; /* Always visible */
+                width: 2em;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #ccc;
+                background-color: white;
+                cursor: pointer;
+                padding: 0;
             }
 
             .mic-icon {
-                cursor: pointer;
+                font-size: 1em;
+                line-height: 1;
             }
 
-            .mic-icon {
-                cursor: pointer;
+            textarea {
+                font-size: 1em;
+                line-height: 1.5em;
+                height: 1.5em;
+                padding: 0.2em 0.4em;
+                resize: none;
+                overflow: hidden;
+                border: 1px solid #ccc;
+                flex: 1;
             }
 
             .mic-on .mic-icon {
                 color: #3149d0;
                 animation: flash 1s infinite;
-                width: 50px;
             }
 
             .mic-off .mic-icon {
                 color: black;
                 animation: none;
-                width: 50px;
             }
 
             @keyframes flash {
@@ -84,12 +83,6 @@
                     opacity: 0;
                 }
             }
-
-            /* #userMessage::placeholder {
-                color: #3149d0;
-                font-weight: bold;
-                animation: flash-blue 1.5s infinite;
-            } */
 
             .flash-placeholder {
                 color: #3149d0;
@@ -108,24 +101,21 @@
             }
         </style>
     </head>
-
     <body>
         <div class="label">GradeScan AI Assistant</div>
 
-        <div class="controls-row">
+        <div class="input-row">
             <span id="micIndicator" title="Toggle microphone">
-                <i id="micIcon" class="fas fa-microphone-slash"></i>
+                <i id="micIcon" class="fas fa-microphone-slash mic-icon"></i>
             </span>
-            <button id="stopSpeakingBtn">🛑 Stop Speaking</button>
+            <textarea
+                id="userMessage"
+                rows="1"
+                style="line-height: 1.5em; overflow: hidden; resize: none"
+            ></textarea>
         </div>
 
-        <textarea
-            id="userMessage"
-            rows="1"
-            style="height: 1.5em; line-height: 1.5em; overflow: hidden; resize: none"
-        ></textarea>
-
-        <div class="normal-status" id="statusMessage">Click Start Listening to begin...</div>
+        <div class="normal-status" id="statusMessage">Click the microphone to begin...</div>
 
         <div class="label">Assistant Response:</div>
         <div
@@ -143,7 +133,6 @@
 
         <script>
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
             if (!SpeechRecognition) {
                 alert("Speech recognition not supported in this browser.");
                 throw new Error("SpeechRecognition not available");
@@ -156,10 +145,9 @@
 
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
-            const stopSpeakingBtn = document.getElementById("stopSpeakingBtn");
             const statusMessageDiv = document.getElementById("statusMessage");
             const micIndicator = document.getElementById("micIndicator");
-            const userMessage = document.getElementById("userMessage");
+            const micIcon = document.getElementById("micIcon");
 
             let recognitionStarted = false;
             let manuallyStopped = false;
@@ -168,27 +156,9 @@
             let heard = false;
             let source = "Voice Demo";
 
-            updateStatus("Click Start Listening to begin", false);
-
-            function clearPlaceholder() {
-                userMessage.value = "";
-                userMessage.classList.remove("flash-placeholder");
-                userMessage.style.fontWeight = "normal";
-                userMessage.style.color = "black";
-                userMessage.readOnly = false;
-            }
-
-            function showFlashingPlaceholder(text) {
-                userMessage.value = text;
-                userMessage.classList.add("flash-placeholder");
-                userMessage.readOnly = true;
-            }
-
-            function clearPlaceholder() {
-                userMessage.value = "";
-                userMessage.classList.remove("flash-placeholder");
-                userMessage.readOnly = false;
-            }
+            updateStatus("Click the microphone to begin", false);
+            updateMicIndicator(false);
+            showFlashingPlaceholder("Click the microphone then start speaking...");
 
             function updateStatus(msg, flash = false, hidden = false) {
                 statusMessageDiv.textContent = msg;
@@ -198,74 +168,68 @@
 
             function updateMicIndicator(on = true) {
                 micIndicator.className = on ? "mic-on" : "mic-off";
-                const micIcon = document.getElementById("micIcon");
                 micIcon.setAttribute(
                     "class",
                     on ? "fas fa-microphone mic-icon" : "fas fa-microphone-slash mic-icon"
                 );
             }
 
-            function hideMicIndicator() {
-                micIndicator.style.display = "none";
+            function showFlashingPlaceholder(text) {
+                userMessageBox.value = text;
+                userMessageBox.classList.add("flash-placeholder");
+                userMessageBox.readOnly = true;
             }
 
-            console.log = function (...args) {
-                const msg = args.join(" ");
-                updateStatus(msg);
-                window.console.info(...args);
+            function setAskMePlaceholder() {
+                userMessageBox.value = "Ask me a question.  I'm listening...";
+                userMessageBox.classList.remove("flash-placeholder");
+                userMessageBox.readOnly = true;
+            }
+
+            function clearPlaceholder() {
+                userMessageBox.value = "";
+                userMessageBox.classList.remove("flash-placeholder");
+                userMessageBox.readOnly = false;
+            }
+
+            recognition.onstart = () => {
+                recognitionStarted = true;
+                heard = false;
+                updateMicIndicator(true);
             };
 
-            console.error = function (...args) {
-                const msg = args.join(" ");
-                updateStatus("❌ " + msg, true);
-                window.console.warn(...args);
-            };
-
-            recognition.onresult = (event) => {
-                console.log("recognition.onresult");
-                // if (heard || speaking) return;
-
-                const transcript = event.results[0][0].transcript.trim();
-                console.log("Heard: " + transcript);
-
-                // if (transcript === "stop") {
-                //     console.log("Heard 'stop'");
-                //     manuallyStopped = true;
-                //     window.speechSynthesis.cancel();
-                //     recognition.stop();
-                //     updateMicIndicator(false);
-                //     updateStatus(
-                //         "🛑 Audio and listening stopped. Click Start Listening to resume.",
-                //         false
-                //     );
-                //     return;
-                // }
-                if (speaking) {
-                    console.log("Assistant is still speaking...");
-                    return;
+            recognition.onend = () => {
+                recognitionStarted = false;
+                if (!manuallyStopped && !speaking) {
+                    heard = false;
+                    listening = true;
+                    setTimeout(() => {
+                        if (!recognitionStarted) {
+                            try {
+                                recognition.start();
+                                updateStatus("🎙️ Listening again...", true);
+                            } catch (err) {
+                                console.error("Recognition restart failed:", err.message);
+                            }
+                        }
+                    }, 1000);
+                } else {
+                    updateMicIndicator(false);
                 }
-                heard = true;
-                userMessageBox.value = transcript;
-
-                sendMessage(transcript);
             };
 
             recognition.onerror = (event) => {
                 console.warn(`Speech recognition error: ${event.error}`);
-
-                // Ignore if manually stopped or currently speaking
                 if (manuallyStopped || speaking) {
                     console.log("Ignored error due to manual stop or speech:", event.error);
                     return;
                 }
 
-                // Handle recoverable errors
                 switch (event.error) {
                     case "no-speech":
                     case "audio-capture":
                     case "aborted":
                         setTimeout(() => {
-                            // ✅ Only restart if not manually stopped and not already started
                             if (!manuallyStopped && !recognitionStarted) {
                                 try {
                                     recognition.start();
@@ -291,46 +255,29 @@
                 }
             };
 
-            recognition.onend = () => {
-                recognitionStarted = false;
-
-                if (!manuallyStopped && !speaking) {
-                    heard = false;
-                    listening = true;
-
-                    // Wait longer to avoid overlapping restart issues
-                    setTimeout(() => {
-                        if (!recognitionStarted) {
-                            try {
-                                recognition.start();
-                                // .onstart will flip recognitionStarted to true
-                                updateStatus("🎙️ Listening again...", true);
-                            } catch (err) {
-                                console.error("Recognition restart failed:", err.message);
-                            }
-                        }
-                    }, 1000); // 👈 increase delay to avoid race condition
-                } else {
-                    updateMicIndicator(false);
+            recognition.onresult = (event) => {
+                console.log("recognition.onresult");
+                const transcript = event.results[0][0].transcript.trim();
+                console.log("Heard: " + transcript);
+                if (speaking) {
+                    console.log("Assistant is still speaking...");
+                    return;
                 }
-            };
-
-            recognition.onstart = () => {
-                recognitionStarted = true;
-                heard = false;
-                updateMicIndicator(true);
+                heard = true;
+                userMessageBox.value = transcript;
+                sendMessage(transcript);
             };
 
             micIndicator.addEventListener("click", () => {
                 if (!listening) {
-                    clearPlaceholder(); // 👈 Revert to black normal font
+                    clearPlaceholder();
+                    setAskMePlaceholder();
                     updateStatus("Listening...", false);
 
                     manuallyStopped = false;
                     speaking = false;
                     heard = false;
                     listening = true;
-                    userMessageBox.value = "";
                     assistantReplyBox.innerHTML = "";
                     updateMicIndicator(true);
 
@@ -345,55 +292,25 @@
                     recognitionStarted = false;
                     listening = false;
                     updateMicIndicator(false);
-
-                    updateStatus("🛑 Microphone turned off.", false);
+                    updateStatus("Microphone turned off.", false);
                 }
-            });
-
-            updateStatus("Click the microphone to begin", false);
-            updateMicIndicator(false);
-            // Initialize placeholder on load
-            showFlashingPlaceholder("Click the microphone then start speaking...");
-
-            stopSpeakingBtn.addEventListener("click", () => {
-                manuallyStopped = true;
-                window.speechSynthesis.cancel();
-                recognition.stop();
-                recognitionStarted = false;
-                updateMicIndicator(false);
-                updateStatus(
-                    "🛑 Audio and listening stopped. Click Start Listening to resume.",
-                    false
-                );
             });
 
             function sendMessage(userMessage) {
                 if (!userMessage.trim()) return;
 
-                const payload = {
-                    UserMessage: userMessage,
-                    Source: source,
-                };
-
-                const apiUrl = "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost"; // Dev
-                //   "https://gradescan-server.azurewebsites.net/api/ttmAiAssistant/chat"; // Live
+                const apiUrl = "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost";
 
                 recognition.stop();
                 recognitionStarted = false;
                 updateMicIndicator(false);
-
                 updateStatus("Searching for answer...", true);
 
                 fetch(apiUrl, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    credentials: "include", // <- REQUIRED to send session cookie
-                    body: JSON.stringify({
-                        UserMessage: userMessage,
-                        Source: source,
-                    }),
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ UserMessage: userMessage, Source: source }),
                 })
                     .then(async (res) => {
                         if (!res.ok) {
@@ -403,13 +320,12 @@
                         return res.json();
                     })
                     .then((response) => {
-                        updateStatus("Formatting reponse...", false);
-                        const jsonResponse = JSON.parse(response.result.result);
-                        const html = jsonResponse.choices[0].message.content.trim();
+                        updateStatus("Formatting response...", false);
+                        const html = JSON.parse(
+                            response.result.result
+                        ).choices[0].message.content.trim();
                         assistantReplyBox.innerHTML = html;
                         updateStatus("Speaking.", false);
-                        recognition.stop();
-                        recognitionStarted = false;
                         updateMicIndicator(false);
 
                         assistantReplyBox.querySelectorAll("a").forEach((a) => {
@@ -420,9 +336,8 @@
                         const utterance = new SpeechSynthesisUtterance(response.result.plainText);
                         speaking = true;
                         window.speechSynthesis.speak(utterance);
-                        updateStatus("Speaking.", false);
 
-                        utterance.onerror = (event) => {
+                        utterance.onerror = () => {
                             updateStatus("Ask me another question.", false);
                             speaking = false;
                             heard = false;
@@ -430,19 +345,21 @@
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
-                                updateMicIndicator(true); // <-- Update to mic-on
+                                updateMicIndicator(true);
+                                setAskMePlaceholder();
                             }
                         };
 
                         utterance.onend = () => {
                             speaking = false;
                             heard = false;
-                            listening = true; // <-- Reactivate listening
+                            listening = true;
                             updateStatus("Ask me another question.", false);
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
-                                updateMicIndicator(true); // <-- Update to mic-on (flashing blue)
+                                updateMicIndicator(true);
+                                setAskMePlaceholder();
                             }
                         };
                     })

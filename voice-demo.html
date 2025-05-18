@@ -43,29 +43,36 @@
                 animation: flash 2s infinite;
             }
 
-            #micIndicator {
-                /* position: fixed;
-                top: 16px;
-                right: 16px; */
-
-                font-size: 24px;
-                z-index: 1000;
-                display: none;
-            }
-
             .controls-row {
                 display: flex;
                 align-items: center;
                 gap: 0.5rem; /* optional spacing between items */
             }
 
-            .mic-on {
-                color: red;
-                animation: flash 1s infinite;
+            #micIndicator {
+                font-size: 24px;
+                z-index: 1000;
+                display: inline; /* Always visible */
             }
 
-            .mic-off {
-                color: gray;
+            .mic-icon {
+                cursor: pointer;
+            }
+
+            .mic-icon {
+                cursor: pointer;
+            }
+
+            .mic-on .mic-icon {
+                color: #3149d0;
+                animation: flash 1s infinite;
+                width: 50px;
+            }
+
+            .mic-off .mic-icon {
+                color: black;
+                animation: none;
+                width: 50px;
             }
 
             @keyframes flash {
@@ -77,28 +84,46 @@
                     opacity: 0;
                 }
             }
+
+            /* #userMessage::placeholder {
+                color: #3149d0;
+                font-weight: bold;
+                animation: flash-blue 1.5s infinite;
+            } */
+
+            .flash-placeholder {
+                color: #3149d0;
+                font-weight: bold;
+                animation: flash-color 1.2s infinite;
+            }
+
+            @keyframes flash-color {
+                0%,
+                100% {
+                    color: #3149d0;
+                }
+                50% {
+                    color: transparent;
+                }
+            }
         </style>
     </head>
 
     <body>
-        <h2>🎙️ Voice Input → GradeScan AI Assistant</h2>
-
-        <div class="label">Your Speech Input:</div>
-        <textarea
-            id="userMessage"
-            placeholder="Waiting for voice..."
-            rows="1"
-            style="height: 1.5em; line-height: 1.5em; overflow: hidden; resize: none"
-        >
-        </textarea>
+        <div class="label">GradeScan AI Assistant</div>
 
         <div class="controls-row">
-            <button id="startListeningBtn">🎤 Start Listening</button>
-            <span id="micIndicator">
-                <i class="fas fa-microphone"></i>
+            <span id="micIndicator" title="Toggle microphone">
+                <i id="micIcon" class="fas fa-microphone-slash"></i>
             </span>
             <button id="stopSpeakingBtn">🛑 Stop Speaking</button>
         </div>
+
+        <textarea
+            id="userMessage"
+            rows="1"
+            style="height: 1.5em; line-height: 1.5em; overflow: hidden; resize: none"
+        ></textarea>
 
         <div class="normal-status" id="statusMessage">Click Start Listening to begin...</div>
 
@@ -131,10 +156,10 @@
 
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
-            const startListeningBtn = document.getElementById("startListeningBtn");
             const stopSpeakingBtn = document.getElementById("stopSpeakingBtn");
             const statusMessageDiv = document.getElementById("statusMessage");
             const micIndicator = document.getElementById("micIndicator");
+            const userMessage = document.getElementById("userMessage");
 
             let recognitionStarted = false;
             let manuallyStopped = false;
@@ -145,6 +170,26 @@
 
             updateStatus("Click Start Listening to begin", false);
 
+            function clearPlaceholder() {
+                userMessage.value = "";
+                userMessage.classList.remove("flash-placeholder");
+                userMessage.style.fontWeight = "normal";
+                userMessage.style.color = "black";
+                userMessage.readOnly = false;
+            }
+
+            function showFlashingPlaceholder(text) {
+                userMessage.value = text;
+                userMessage.classList.add("flash-placeholder");
+                userMessage.readOnly = true;
+            }
+
+            function clearPlaceholder() {
+                userMessage.value = "";
+                userMessage.classList.remove("flash-placeholder");
+                userMessage.readOnly = false;
+            }
+
             function updateStatus(msg, flash = false, hidden = false) {
                 statusMessageDiv.textContent = msg;
                 statusMessageDiv.className = flash ? "flashing-status" : "normal-status";
@@ -152,8 +197,12 @@
             }
 
             function updateMicIndicator(on = true) {
-                micIndicator.style.display = "block";
                 micIndicator.className = on ? "mic-on" : "mic-off";
+                const micIcon = document.getElementById("micIcon");
+                micIcon.setAttribute(
+                    "class",
+                    on ? "fas fa-microphone mic-icon" : "fas fa-microphone-slash mic-icon"
+                );
             }
 
             function hideMicIndicator() {
@@ -206,6 +255,7 @@
 
                 // Ignore if manually stopped or currently speaking
                 if (manuallyStopped || speaking) {
+                    console.log("Ignored error due to manual stop or speech:", event.error);
                     return;
                 }
 
@@ -214,13 +264,17 @@
                     case "no-speech":
                     case "audio-capture":
                     case "aborted":
-                        // Retry after short delay
                         setTimeout(() => {
-                            try {
-                                recognition.start();
-                                updateStatus("Listening again...", true);
-                            } catch (err) {
-                                console.error("Retry failed:", err.message);
+                            // ✅ Only restart if not manually stopped and not already started
+                            if (!manuallyStopped && !recognitionStarted) {
+                                try {
+                                    recognition.start();
+                                    recognitionStarted = true;
+                                    updateStatus("Listening again...", true);
+                                    updateMicIndicator(true);
+                                } catch (err) {
+                                    console.error("Retry failed:", err.message);
+                                }
                             }
                         }, 300);
                         break;
@@ -238,39 +292,68 @@
             };
 
             recognition.onend = () => {
-                // if (!manuallyStopped && !speaking) {
-                //     if (!recognitionStarted) {
-                //         recognition.start();
-                //         recognitionStarted = true;
-                //     }
-                //     heard = false;
-                //     updateMicIndicator(true);
-                //     // updateStatus("🎙️ Listening again...", true);
-                // } else {
-                //     updateMicIndicator(false);
-                // }
+                recognitionStarted = false;
+
+                if (!manuallyStopped && !speaking) {
+                    heard = false;
+                    listening = true;
+
+                    // Wait longer to avoid overlapping restart issues
+                    setTimeout(() => {
+                        if (!recognitionStarted) {
+                            try {
+                                recognition.start();
+                                // .onstart will flip recognitionStarted to true
+                                updateStatus("🎙️ Listening again...", true);
+                            } catch (err) {
+                                console.error("Recognition restart failed:", err.message);
+                            }
+                        }
+                    }, 1000); // 👈 increase delay to avoid race condition
+                } else {
+                    updateMicIndicator(false);
+                }
             };
 
             recognition.onstart = () => {
+                recognitionStarted = true;
                 heard = false;
                 updateMicIndicator(true);
-                // updateStatus("🎙️ Listening...", true);
             };
 
-            startListeningBtn.addEventListener("click", () => {
+            micIndicator.addEventListener("click", () => {
                 if (!listening) {
+                    clearPlaceholder(); // 👈 Revert to black normal font
+                    updateStatus("Listening...", false);
+
                     manuallyStopped = false;
                     speaking = false;
                     heard = false;
                     listening = true;
                     userMessageBox.value = "";
                     assistantReplyBox.innerHTML = "";
+                    updateMicIndicator(true);
+
                     if (!recognitionStarted) {
                         recognition.start();
                         recognitionStarted = true;
                     }
+                } else {
+                    manuallyStopped = true;
+                    recognition.stop();
+                    window.speechSynthesis.cancel();
+                    recognitionStarted = false;
+                    listening = false;
+                    updateMicIndicator(false);
+
+                    updateStatus("🛑 Microphone turned off.", false);
                 }
             });
+
+            updateStatus("Click the microphone to begin", false);
+            updateMicIndicator(false);
+            // Initialize placeholder on load
+            showFlashingPlaceholder("Click the microphone then start speaking...");
 
             stopSpeakingBtn.addEventListener("click", () => {
                 manuallyStopped = true;
@@ -297,6 +380,7 @@
 
                 recognition.stop();
                 recognitionStarted = false;
+                updateMicIndicator(false);
 
                 updateStatus("Searching for answer...", true);
 
@@ -326,6 +410,7 @@
                         updateStatus("Speaking.", false);
                         recognition.stop();
                         recognitionStarted = false;
+                        updateMicIndicator(false);
 
                         assistantReplyBox.querySelectorAll("a").forEach((a) => {
                             a.setAttribute("target", "_blank");
@@ -338,25 +423,26 @@
                         updateStatus("Speaking.", false);
 
                         utterance.onerror = (event) => {
-                            //   console.error("Speech synthesis error:", event.error);
                             updateStatus("Ask me another question.", false);
                             speaking = false;
                             heard = false;
-                            listening = false;
+                            listening = true;
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
+                                updateMicIndicator(true); // <-- Update to mic-on
                             }
                         };
 
                         utterance.onend = () => {
                             speaking = false;
                             heard = false;
-                            listening = false;
+                            listening = true; // <-- Reactivate listening
                             updateStatus("Ask me another question.", false);
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
+                                updateMicIndicator(true); // <-- Update to mic-on (flashing blue)
                             }
                         };
                     })

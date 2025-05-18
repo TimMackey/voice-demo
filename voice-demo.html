@@ -164,6 +164,7 @@
                 statusMessageDiv.textContent = msg;
                 statusMessageDiv.className = flash ? "flashing-status" : "normal-status";
                 statusMessageDiv.style.display = hidden ? "none" : "block";
+                console.log("updateStatus message: " + msg);
             }
 
             function updateMicIndicator(on = true) {
@@ -182,6 +183,12 @@
 
             function setAskMePlaceholder() {
                 userMessageBox.value = "Ask me a question.  I'm listening...";
+                userMessageBox.classList.remove("flash-placeholder");
+                userMessageBox.readOnly = true;
+            }
+
+            function setAskMeAnotherQuestionPlaceholder() {
+                userMessageBox.value = "Ask me another question.  I'm listening...";
                 userMessageBox.classList.remove("flash-placeholder");
                 userMessageBox.readOnly = true;
             }
@@ -207,7 +214,7 @@
                         if (!recognitionStarted) {
                             try {
                                 recognition.start();
-                                updateStatus("🎙️ Listening again...", true);
+                                // updateStatus("🎙️ Listening again...", true);
                             } catch (err) {
                                 console.error("Recognition restart failed:", err.message);
                             }
@@ -219,7 +226,7 @@
             };
 
             recognition.onerror = (event) => {
-                console.warn(`Speech recognition error: ${event.error}`);
+                // console.warn(`Speech recognition error: ${event.error}`);
                 if (manuallyStopped || speaking) {
                     console.log("Ignored error due to manual stop or speech:", event.error);
                     return;
@@ -346,7 +353,7 @@
                                 recognition.start();
                                 recognitionStarted = true;
                                 updateMicIndicator(true);
-                                setAskMePlaceholder();
+                                setAskMeAnotherQuestionPlaceholder();
                             }
                         };
 
@@ -359,7 +366,7 @@
                                 recognition.start();
                                 recognitionStarted = true;
                                 updateMicIndicator(true);
-                                setAskMePlaceholder();
+                                setAskMeAnotherQuestionPlaceholder();
                             }
                         };
                     })

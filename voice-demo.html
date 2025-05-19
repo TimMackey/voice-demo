@@ -42,7 +42,6 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border: 1px solid #ccc;
                 background-color: white;
                 cursor: pointer;
                 padding: 0;
@@ -115,8 +114,6 @@
             ></textarea>
         </div>
 
-        <div class="normal-status" id="statusMessage">Click the microphone to begin...</div>
-
         <div class="label">Assistant Response:</div>
         <div
             id="assistantReplyBox"
@@ -145,7 +142,6 @@
 
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
-            const statusMessageDiv = document.getElementById("statusMessage");
             const micIndicator = document.getElementById("micIndicator");
             const micIcon = document.getElementById("micIcon");
 
@@ -156,16 +152,8 @@
             let heard = false;
             let source = "Voice Demo";
 
-            updateStatus("Click the microphone to begin", false);
             updateMicIndicator(false);
             showFlashingPlaceholder("Click the microphone then start speaking...");
-
-            function updateStatus(msg, flash = false, hidden = false) {
-                statusMessageDiv.textContent = msg;
-                statusMessageDiv.className = flash ? "flashing-status" : "normal-status";
-                statusMessageDiv.style.display = hidden ? "none" : "block";
-                console.log("updateStatus message: " + msg);
-            }
 
             function updateMicIndicator(on = true) {
                 micIndicator.className = on ? "mic-on" : "mic-off";
@@ -214,7 +202,6 @@
                         if (!recognitionStarted) {
                             try {
                                 recognition.start();
-                                // updateStatus("🎙️ Listening again...", true);
                             } catch (err) {
                                 console.error("Recognition restart failed:", err.message);
                             }
@@ -241,7 +228,6 @@
                                 try {
                                     recognition.start();
                                     recognitionStarted = true;
-                                    updateStatus("Listening again...", true);
                                     updateMicIndicator(true);
                                 } catch (err) {
                                     console.error("Retry failed:", err.message);
@@ -252,12 +238,11 @@
 
                     case "not-allowed":
                     case "service-not-allowed":
-                        updateStatus("Microphone access denied or blocked.", true);
                         manuallyStopped = true;
                         break;
 
                     default:
-                        updateStatus(`Unhandled recognition error: ${event.error}`, true);
+                        console.warn(`Unhandled recognition error: ${event.error}`, true);
                         break;
                 }
             };
@@ -279,7 +264,6 @@
                 if (!listening) {
                     clearPlaceholder();
                     setAskMePlaceholder();
-                    updateStatus("Listening...", false);
 
                     manuallyStopped = false;
                     speaking = false;
@@ -299,7 +283,6 @@
                     recognitionStarted = false;
                     listening = false;
                     updateMicIndicator(false);
-                    updateStatus("Microphone turned off.", false);
                 }
             });
 
@@ -311,7 +294,6 @@
                 recognition.stop();
                 recognitionStarted = false;
                 updateMicIndicator(false);
-                updateStatus("Searching for answer...", true);
 
                 fetch(apiUrl, {
                     method: "POST",
@@ -327,12 +309,10 @@
                         return res.json();
                     })
                     .then((response) => {
-                        updateStatus("Formatting response...", false);
                         const html = JSON.parse(
                             response.result.result
                         ).choices[0].message.content.trim();
                         assistantReplyBox.innerHTML = html;
-                        updateStatus("Speaking.", false);
                         updateMicIndicator(false);
 
                         assistantReplyBox.querySelectorAll("a").forEach((a) => {
@@ -345,7 +325,6 @@
                         window.speechSynthesis.speak(utterance);
 
                         utterance.onerror = () => {
-                            updateStatus("Ask me another question.", false);
                             speaking = false;
                             heard = false;
                             listening = true;
@@ -361,7 +340,6 @@
                             speaking = false;
                             heard = false;
                             listening = true;
-                            updateStatus("Ask me another question.", false);
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;

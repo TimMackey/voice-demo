@@ -1,11 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <script
-            crossorigin="anonymous"
-            src="https://kit.fontawesome.com/14e0b589b4.js"
-            crossorigin="anonymous"
-        ></script>
+        <script crossorigin="anonymous" src="https://kit.fontawesome.com/14e0b589b4.js" crossorigin="anonymous"></script>
 
         <meta charset="UTF-8" />
         <title>Voice to Assistant</title>
@@ -115,11 +111,7 @@
                 <i id="micIcon" class="fa-solid fa-circle-microphone fa-xl mic-icon"></i>
                 <!-- <i id="micIcon" class="fas fa-microphone-slash mic-icon"></i> -->
             </span>
-            <textarea
-                id="userMessage"
-                rows="1"
-                style="line-height: 1.5em; overflow: hidden; resize: none"
-            ></textarea>
+            <textarea id="userMessage" rows="1" style="line-height: 1.5em; overflow: hidden; resize: none"></textarea>
         </div>
 
         <div class="label">Assistant Response:</div>
@@ -144,6 +136,12 @@
             }
 
             const apiUrl = "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost";
+
+            const STATE = {
+                VISIBLE: "visible",
+                STOP: "stop",
+                PROMPT: "prompt",
+            };
 
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
@@ -173,19 +171,23 @@
                 return match ? parseInt(match[1], 10) : null;
             }
 
-            updateMicIndicator("prompt", "init", getLineNumber());
+            updateMicIndicator(STATE.PROMPT, "init", getLineNumber());
             showFlashingPlaceholder("Click the microphone then voice your question.");
 
-            function updateMicIndicator(state = "visible", func = "unknown", line = 0) {
+            function updateMicIndicator(state, func = "unknown", line = 0) {
+                if (state === null || state === undefined) {
+                    console.warn('updateMicIndicator(state = undefined, func =', func, ', line =', line, ')');
+                    return;
+                }
                 micIndicator.className = state;
                 switch (state) {
-                    case "visible":
+                    case STATE.VISIBLE:
                         document.getElementById("micIndicator").title = "Click to de-activate mic";
                         break;
-                    case "stop":
+                    case STATE.STOP:
                         document.getElementById("micIndicator").title = "Click to stop speaking";
                         break;
-                    case "prompt":
+                    case STATE.PROMPT:
                         document.getElementById("micIndicator").title = "Click to activate mic";
                         break;
                 }
@@ -219,7 +221,7 @@
             recognition.onstart = () => {
                 recognitionStarted = true;
                 heard = false;
-                updateMicIndicator("visible", "recognition.onstart", getLineNumber());
+                updateMicIndicator(STATE.VISIBLE, "recognition.onstart", getLineNumber());
             };
 
             recognition.onend = () => {
@@ -232,24 +234,18 @@
                             try {
                                 recognition.start();
                             } catch (err) {
-                                console.warn(
-                                    "catch recognition.onend Recognition restart failed:",
-                                    err.message
-                                );
+                                console.warn("catch recognition.onend Recognition restart failed:", err.message);
                             }
                         }
                     }, 1000);
                 } else {
-                    updateMicIndicator("stop", "recognition.onend", getLineNumber());
+                    updateMicIndicator(STATE.STOP, "recognition.onend", getLineNumber());
                 }
             };
 
             recognition.onerror = (event) => {
                 if (manuallyStopped || speaking) {
-                    console.log(
-                        "recognition.onerror Ignored error due to manual stop or speech:",
-                        event.error
-                    );
+                    console.log("recognition.onerror Ignored error due to manual stop or speech:", event.error);
                     return;
                 }
 
@@ -262,16 +258,8 @@
                                 try {
                                     recognition.start();
                                     recognitionStarted = true;
-                                    updateMicIndicator(
-                                        "visisble",
-                                        "recognition.onerror",
-                                        getLineNumber()
-                                    );
                                 } catch (err) {
-                                    console.warn(
-                                        "catch recognition.onerror recognition.start() failed:",
-                                        err.message
-                                    );
+                                    console.warn("catch recognition.onerror recognition.start() failed:", err.message);
                                 }
                             }
                         }, 300);
@@ -310,7 +298,7 @@
                     heard = false;
                     listening = true;
                     assistantReplyBox.innerHTML = "";
-                    updateMicIndicator("visible", "micIndicator.addEventListener", getLineNumber());
+                    updateMicIndicator(STATE.VISIBLE, "micIndicator.addEventListener", getLineNumber());
 
                     if (!recognitionStarted) {
                         recognition.start();
@@ -322,7 +310,7 @@
                     window.speechSynthesis.cancel();
                     recognitionStarted = false;
                     listening = false;
-                    updateMicIndicator("stop", "micIndicator.addEventListener", getLineNumber());
+                    updateMicIndicator(STATE.STOP, "micIndicator.addEventListener", getLineNumber());
                 }
             });
 
@@ -331,7 +319,7 @@
 
                 recognition.stop();
                 recognitionStarted = false;
-                updateMicIndicator("stop", "sendMessage fetch", getLineNumber());
+                updateMicIndicator(STATE.STOP, "sendMessage fetch", getLineNumber());
 
                 fetch(apiUrl, {
                     method: "POST",
@@ -347,13 +335,11 @@
                         return res.json();
                     })
                     .then((response) => {
-                        const html = JSON.parse(
-                            response.result.result
-                        ).choices[0].message.content.trim();
+                        const html = JSON.parse(response.result.result).choices[0].message.content.trim();
                         assistantReplyBox.innerHTML = html;
                         recognition.stop();
                         recognitionStarted = false;
-                        updateMicIndicator("stop", "sendMessage response", getLineNumber());
+                        updateMicIndicator(STATE.STOP, "sendMessage response", getLineNumber());
 
                         assistantReplyBox.querySelectorAll("a").forEach((a) => {
                             a.setAttribute("target", "_blank");
@@ -371,7 +357,6 @@
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
-                                updateMicIndicator("visible", "sendMessage", getLineNumber());
                                 setAskMeAnotherQuestionPlaceholder();
                             }
                         };
@@ -383,7 +368,6 @@
                             if (!recognitionStarted) {
                                 recognition.start();
                                 recognitionStarted = true;
-                                updateMicIndicator("visible", "utterance.onend", getLineNumber());
                                 setAskMeAnotherQuestionPlaceholder();
                             }
                         };

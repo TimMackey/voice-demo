@@ -143,17 +143,55 @@
                 PROMPT: "prompt",
             };
 
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = "en-US";
+            function getSeconds() {
+                const now = new Date();
+                const second = now.getSeconds();
+                const millis = now.getMilliseconds();
+                // const hour = now.getHours();
+                // const minute = now.getMinutes();
+                // console.log(`Current time: ${hour}:${minute}:${second}.${millis}`);
+                let secs = second + "." + millis;
+                return secs;
+            }
+
+            function getTrueCallerLineNumber(skipFrames = 2) {
+                const stack = new Error().stack.split("\n");
+                for (let i = skipFrames; i < stack.length; i++) {
+                    const match = stack[i].match(/:(\d+):\d+\)?$/);
+                    if (match) return match[1]; // Line number
+                }
+                return "unknown";
+            }
+
+            const recognition = {
+                _recognitionStarted: false,
+
+                get started() {
+                    const line = getTrueCallerLineNumber(3); // skip 3 levels
+                    console.log(`get ${this._recognitionStarted} = recognition.started [line ${line}]`, getSeconds());
+                    return this._recognitionStarted;
+                },
+
+                set started(value) {
+                    const line = getTrueCallerLineNumber(3); // skip 3 levels
+                    this._recognitionStarted = value;
+                    console.log(`set recognition.started = ${value} [line ${line}]`, getSeconds());
+                },
+            };
+
+            const speechRecognition = new SpeechRecognition();
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = false;
+            speechRecognition.lang = "en-US";
 
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
             const micIndicator = document.getElementById("micIndicator");
             const micIcon = document.getElementById("micIcon");
 
-            let recognitionStarted = false;
+            let suppressRecognitionRestart = false;
+            let suppressMicIndicatorUpdate = false;
+            let resumeAfterSpeak = false;
             let manuallyStopped = false;
             let listening = false;
             let speaking = false;
@@ -171,12 +209,13 @@
                 return match ? parseInt(match[1], 10) : null;
             }
 
-            updateMicIndicator(STATE.PROMPT, "init", getLineNumber());
             showFlashingPlaceholder("Click the microphone then voice your question.");
+
+            updateMicIndicator(STATE.PROMPT, "init", getLineNumber());
 
             function updateMicIndicator(state, func = "unknown", line = 0) {
                 if (state === null || state === undefined) {
-                    console.warn('updateMicIndicator(state = undefined, func =', func, ', line =', line, ')');
+                    console.warn("updateMicIndicator(state = undefined, func =", func, ", line =", line, ")");
                     return;
                 }
                 micIndicator.className = state;
@@ -191,7 +230,7 @@
                         document.getElementById("micIndicator").title = "Click to activate mic";
                         break;
                 }
-                console.log("updateMicIndicator(", state, func, line, ")");
+                console.log("updateMicIndicator(", state, func, line, ")", getSeconds());
             }
 
             function showFlashingPlaceholder(text) {
@@ -218,32 +257,38 @@
                 userMessageBox.readOnly = false;
             }
 
-            recognition.onstart = () => {
-                recognitionStarted = true;
+            speechRecognition.onstart = () => {
+                if (!suppressMicIndicatorUpdate && !recognition.started) {
+                    updateMicIndicator(STATE.VISIBLE, "recognition.onstart", getLineNumber());
+                }
+                recognition.started = true;
                 heard = false;
-                updateMicIndicator(STATE.VISIBLE, "recognition.onstart", getLineNumber());
             };
 
-            recognition.onend = () => {
-                recognitionStarted = false;
-                if (!manuallyStopped && !speaking) {
+            speechRecognition.onend = () => {
+                recognition.started = false;
+
+                if (!manuallyStopped && !speaking && !suppressRecognitionRestart) {
                     heard = false;
                     listening = true;
                     setTimeout(() => {
-                        if (!recognitionStarted) {
+                        if (!recognition.started) {
                             try {
-                                recognition.start();
+                                suppressMicIndicatorUpdate = true;
+                                speechRecognition.start();
                             } catch (err) {
                                 console.warn("catch recognition.onend Recognition restart failed:", err.message);
                             }
                         }
                     }, 1000);
                 } else {
-                    updateMicIndicator(STATE.STOP, "recognition.onend", getLineNumber());
+                    if (!suppressMicIndicatorUpdate) {
+                        updateMicIndicator(STATE.STOP, "recognition.onend", getTrueCallerLineNumber(3));
+                    }
                 }
             };
 
-            recognition.onerror = (event) => {
+            speechRecognition.onerror = (event) => {
                 if (manuallyStopped || speaking) {
                     console.log("recognition.onerror Ignored error due to manual stop or speech:", event.error);
                     return;
@@ -254,10 +299,10 @@
                     case "audio-capture":
                     case "aborted":
                         setTimeout(() => {
-                            if (!manuallyStopped && !recognitionStarted) {
+                            if (!manuallyStopped && !recognition.started) {
                                 try {
-                                    recognition.start();
-                                    recognitionStarted = true;
+                                    speechRecognition.start();
+                                    recognition.started = true;
                                 } catch (err) {
                                     console.warn("catch recognition.onerror recognition.start() failed:", err.message);
                                 }
@@ -276,9 +321,8 @@
                 }
             };
 
-            recognition.onresult = (event) => {
+            speechRecognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript.trim();
-                // console.log("recognition.onresult  Heard: " + transcript);
                 if (speaking) {
                     console.log("recognition.onresult  Assistant is still speaking...");
                     return;
@@ -300,26 +344,51 @@
                     assistantReplyBox.innerHTML = "";
                     updateMicIndicator(STATE.VISIBLE, "micIndicator.addEventListener", getLineNumber());
 
-                    if (!recognitionStarted) {
-                        recognition.start();
-                        recognitionStarted = true;
+                    if (!recognition.started) {
+                        speechRecognition.start();
+                        recognition.started = true;
                     }
                 } else {
                     manuallyStopped = true;
-                    recognition.stop();
+                    speechRecognition.stop();
                     window.speechSynthesis.cancel();
-                    recognitionStarted = false;
+                    recognition.started = false;
                     listening = false;
                     updateMicIndicator(STATE.STOP, "micIndicator.addEventListener", getLineNumber());
                 }
             });
 
+            function resumeListening() {
+                listening = true;
+                resumeAfterSpeak = false;
+                suppressRecognitionRestart = false;
+
+                const line = getTrueCallerLineNumber(3);
+
+                if (!recognition.started) {
+                    try {
+                        suppressMicIndicatorUpdate = false;
+                        recognition.started = true;
+                        speechRecognition.start(); // safe start
+                        suppressRecognitionRestart = false;
+                        updateMicIndicator(STATE.VISIBLE, "resumeListening", line);
+                        setAskMeAnotherQuestionPlaceholder();
+                    } catch (err) {
+                        console.warn("resumeListening: recognition.start() failed:", err.message);
+                    }
+                }
+            }
+
             function sendMessage(userMessage) {
                 if (!userMessage.trim()) return;
 
-                recognition.stop();
-                recognitionStarted = false;
-                updateMicIndicator(STATE.STOP, "sendMessage fetch", getLineNumber());
+                suppressMicIndicatorUpdate = true;
+                speechRecognition.stop(); // Stop browser mic immediately
+                suppressRecognitionRestart = true;
+                recognition.started = false;
+                updateMicIndicator(STATE.STOP, "sendMessage fetch", getTrueCallerLineNumber(3));
+
+                console.log("Question:", userMessage, getSeconds());
 
                 fetch(apiUrl, {
                     method: "POST",
@@ -336,9 +405,10 @@
                     })
                     .then((response) => {
                         const html = JSON.parse(response.result.result).choices[0].message.content.trim();
+
+                        console.log("Answer:", response.result.plainText, getSeconds());
+
                         assistantReplyBox.innerHTML = html;
-                        recognition.stop();
-                        recognitionStarted = false;
                         updateMicIndicator(STATE.STOP, "sendMessage response", getLineNumber());
 
                         assistantReplyBox.querySelectorAll("a").forEach((a) => {
@@ -348,28 +418,19 @@
 
                         const utterance = new SpeechSynthesisUtterance(response.result.plainText);
                         speaking = true;
+                        resumeAfterSpeak = true;
                         window.speechSynthesis.speak(utterance);
 
                         utterance.onerror = () => {
                             speaking = false;
                             heard = false;
-                            listening = true;
-                            if (!recognitionStarted) {
-                                recognition.start();
-                                recognitionStarted = true;
-                                setAskMeAnotherQuestionPlaceholder();
-                            }
+                            if (resumeAfterSpeak) resumeListening();
                         };
 
                         utterance.onend = () => {
                             speaking = false;
                             heard = false;
-                            listening = true;
-                            if (!recognitionStarted) {
-                                recognition.start();
-                                recognitionStarted = true;
-                                setAskMeAnotherQuestionPlaceholder();
-                            }
+                            if (resumeAfterSpeak) resumeListening();
                         };
                     })
                     .catch((error) => {

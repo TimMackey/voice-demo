@@ -135,6 +135,8 @@
                 throw new Error("SpeechRecognition not available");
             }
 
+            const apiUrl = "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost";
+
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
@@ -203,7 +205,7 @@
                             try {
                                 recognition.start();
                             } catch (err) {
-                                console.error("Recognition restart failed:", err.message);
+                                console.warn("catch recognition.onend Recognition restart failed:", err.message);
                             }
                         }
                     }, 1000);
@@ -213,9 +215,8 @@
             };
 
             recognition.onerror = (event) => {
-                // console.warn(`Speech recognition error: ${event.error}`);
                 if (manuallyStopped || speaking) {
-                    console.log("Ignored error due to manual stop or speech:", event.error);
+                    console.log("recognition.onerror Ignored error due to manual stop or speech:", event.error);
                     return;
                 }
 
@@ -230,7 +231,7 @@
                                     recognitionStarted = true;
                                     updateMicIndicator(true);
                                 } catch (err) {
-                                    console.error("Retry failed:", err.message);
+                                    console.warn("catch recognition.onerror recognition.start() failed:", err.message);
                                 }
                             }
                         }, 300);
@@ -242,17 +243,16 @@
                         break;
 
                     default:
-                        console.warn(`Unhandled recognition error: ${event.error}`, true);
+                        console.warn(`Unhandled speech recognition error: ${event.error}`, true);
                         break;
                 }
             };
 
             recognition.onresult = (event) => {
-                console.log("recognition.onresult");
                 const transcript = event.results[0][0].transcript.trim();
-                console.log("Heard: " + transcript);
+                console.log("recognition.onresult  Heard: " + transcript);
                 if (speaking) {
-                    console.log("Assistant is still speaking...");
+                    console.log("recognition.onresult  Assistant is still speaking...");
                     return;
                 }
                 heard = true;
@@ -288,8 +288,6 @@
 
             function sendMessage(userMessage) {
                 if (!userMessage.trim()) return;
-
-                const apiUrl = "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost";
 
                 recognition.stop();
                 recognitionStarted = false;
@@ -349,7 +347,7 @@
                         };
                     })
                     .catch((error) => {
-                        console.error("API Error:", error.message || error);
+                        console.error("catch sendMessage API Error:", error.message || error);
                         assistantReplyBox.innerHTML = error.message || error;
                     });
             }

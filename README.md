@@ -30,7 +30,7 @@ How to use voice_demo
 3. create a folder where you want to store voice-demo
 4. download the code to the chosen folder
 5. open a cmd window.  'cd' to the code's folder (where 'voice_demo.html' is)
-6. enter "python -m http.server 8000"
+6. enter "python -m http.server 3000"
 7. you should see "Serving HTTP on :: port 3000 (http://[::]:3000/) ..."
 8. in Windows Explorer right-click 'voice-demo.html' and select 'Open'
 9. with Chrome browser your browser url should be something like file:///C:/Users/[User]/some_path/voice_demo/voice_demo.html

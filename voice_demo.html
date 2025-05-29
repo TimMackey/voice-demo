@@ -1,10 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Voice to Assistant</title>
-        <script crossorigin="anonymous" src="https://kit.fontawesome.com/14e0b589b4.js" crossorigin="anonymous"></script>
-        <style>
+<head>
+    <meta charset="UTF-8" />
+    <title>Voice to Assistant</title>
+    <script crossorigin="anonymous"
+            src="https://kit.fontawesome.com/14e0b589b4.js">
+    </script>
+    <style>
             body {
                 font-family: Arial, sans-serif;
                 padding: 2rem;
@@ -76,47 +78,42 @@
                 /* animation: flash-color 1.2s infinite; */
             }
         </style>
-    </head>
-    <body>
-        <div class="label">GradeScan AI Assistant</div>
+</head>
+<body>
+    <div class="label">GradeScan AI Assistant</div>
+    <div class="input-row">
+        <span id="micIndicator" title="Click me">
+            <i class="fa-solid fa-circle-microphone fa-xl mic-icon"></i>
+        </span>
+        <textarea id="userMessage"
+                  rows="1"
+                  style="line-height: 1.5em; overflow: hidden; resize: none">
+        </textarea>
+    </div>
 
-        <div class="input-row">
-            <span id="micIndicator" title="Click me">
-                <i id="micIcon" class="fa-solid fa-circle-microphone fa-xl mic-icon"></i>
-            </span>
-            <textarea id="userMessage" rows="1" style="line-height: 1.5em; overflow: hidden; resize: none"></textarea>
-        </div>
+    <div class="label">Assistant Response:</div>
+    <div id="assistantReplyBox"
+         style="height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; overscroll-behavior-y: contain; resize: vertical;">
+    </div>
 
-        <div class="label">Assistant Response:</div>
-        <div
-            id="assistantReplyBox"
-            style="
-                height: 400px;
-                overflow-y: auto;
-                border: 1px solid #ccc;
-                padding: 10px;
-                margin-top: 10px;
-                overscroll-behavior-y: contain;
-                resize: vertical;
-            "
-        ></div>
-
-        <script>
+    <script>
+            // Setup speech recognition API
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
                 alert("Speech recognition not supported in this browser.");
                 throw new Error("SpeechRecognition not available");
             }
 
+            // API endpoint for assistant
             const apiUrl =
-            "https://gradescan-server.azurewebsites.net/api/ttmAiAssistant/chat";
-            //   "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost"; // localhost
-            "https://gradescan-server.azurewebsites.net/api/ttmAiAssistant/chat";   // server
+            // "https://gradescan-server.azurewebsites.net/api/ttmAiAssistant/chat";
+            "https://localhost:44301/api/ttmAiAssistant/chat?source=localhost"; // localhost
 
+            // UI state constants
             const STATE = {
                 VISIBLE: "visible",
                 STOP: "stop",
-                PROMPT: "prompt",
+                PROMPT: "prompt"
             };
 
             function getSeconds() {
@@ -139,6 +136,7 @@
                 return "unknown";
             }
 
+            // Wrapper to track recognition status
             const recognition = {
                 _recognitionStarted: false,
 
@@ -152,18 +150,21 @@
                     const line = getTrueCallerLineNumber(3); // skip 3 levels
                     this._recognitionStarted = value;
                     // console.log(`set recognition.started = ${value} [line ${line}]`, getSeconds());
-                },
+                }
             };
 
+            // Speech recognition setup
             const speechRecognition = new SpeechRecognition();
             speechRecognition.continuous = false;
             speechRecognition.interimResults = false;
             speechRecognition.lang = "en-US";
 
+            // UI elements
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
             const micIndicator = document.getElementById("micIndicator");
 
+            // State flags
             let suppressRecognitionRestart = false;
             let suppressMicIndicatorUpdate = false;
             let resumeAfterSpeak = false;
@@ -171,21 +172,22 @@
             let listening = false;
             let speaking = false;
 
+            // Debug helper to get line number
             function getLineNumber() {
                 const err = new Error();
                 const stackLines = err.stack.split("\n");
-
                 // The line of interest is usually the third line in the stack trace
                 // Format example (Chrome): at Object.<anonymous> (<anonymous>:6:9)
-                const callerLine = stackLines[2] || stackLines[1]; // Fallback for environments
+                const callerLine = stackLines[2] || stackLines[1];
                 const match = callerLine.match(/:(\d+):\d+\)?$/);
                 return match ? parseInt(match[1], 10) : null;
             }
 
+            // Show initial placeholder
             showFlashingPlaceholder("Click the microphone then voice your question.");
-
             updateMicIndicator(STATE.PROMPT, "init", getLineNumber());
 
+            // Mic indicator control
             function updateMicIndicator(state, func = "unknown", line = 0) {
                 if (state === null || state === undefined) {
                     console.warn("updateMicIndicator(state = undefined, func =", func, ", line =", line, ")");
@@ -206,6 +208,7 @@
                 // console.log("updateMicIndicator(", state, func, line, ")", getSeconds());
             }
 
+            // Placeholder helpers
             function showFlashingPlaceholder(text) {
                 userMessageBox.value = text;
                 userMessageBox.classList.add("flash-placeholder");
@@ -230,6 +233,7 @@
                 userMessageBox.readOnly = false;
             }
 
+            // Speech recognition event bindings
             speechRecognition.onstart = () => {
                 if (!suppressMicIndicatorUpdate && !recognition.started) {
                     updateMicIndicator(STATE.VISIBLE, "recognition.onstart", getLineNumber());
@@ -302,6 +306,7 @@
                 sendMessage(transcript);
             };
 
+            // Mic click handler
             micIndicator.addEventListener("click", () => {
                 if (!listening) {
                     clearPlaceholder();
@@ -327,6 +332,7 @@
                 }
             });
 
+            // Resume listening after speaking ends
             function resumeListening() {
                 listening = true;
                 resumeAfterSpeak = false;
@@ -348,6 +354,7 @@
                 }
             }
 
+            // Send the message and handle response
             function sendMessage(userMessage) {
                 if (!userMessage.trim()) return;
 
@@ -363,7 +370,7 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
-                    body: JSON.stringify({ UserMessage: userMessage, Source: "Voice Demo" }),
+                    body: JSON.stringify({ UserMessage: userMessage, Source: "Voice Demo" })
                 })
                     .then(async (res) => {
                         if (!res.ok) {
@@ -406,5 +413,5 @@
                     });
             }
         </script>
-    </body>
+</body>
 </html>

@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <script crossorigin="anonymous" src="https://kit.fontawesome.com/14e0b589b4.js" crossorigin="anonymous"></script>
-
         <meta charset="UTF-8" />
         <title>Voice to Assistant</title>
+        <script crossorigin="anonymous" src="https://kit.fontawesome.com/14e0b589b4.js" crossorigin="anonymous"></script>
         <style>
             body {
                 font-family: Arial, sans-serif;
@@ -14,21 +13,6 @@
             .label {
                 margin-top: 1.5rem;
                 font-weight: bold;
-            }
-
-            .normal-status {
-                padding-top: 10px;
-                color: blue;
-                font-weight: bold;
-                display: none;
-            }
-
-            .flashing-status {
-                padding-top: 10px;
-                color: red;
-                font-weight: bold;
-                display: none;
-                animation: flash 2s infinite;
             }
 
             .input-row {
@@ -90,16 +74,6 @@
                 color: #3149d0;
                 font-weight: bold;
                 /* animation: flash-color 1.2s infinite; */
-            }
-
-            @keyframes flash-color {
-                0%,
-                100% {
-                    color: #3149d0;
-                }
-                50% {
-                    color: transparent;
-                }
             }
         </style>
     </head>
@@ -169,14 +143,14 @@
 
                 get started() {
                     const line = getTrueCallerLineNumber(3); // skip 3 levels
-                    console.log(`get ${this._recognitionStarted} = recognition.started [line ${line}]`, getSeconds());
+                    // console.log(`get ${this._recognitionStarted} = recognition.started [line ${line}]`, getSeconds());
                     return this._recognitionStarted;
                 },
 
                 set started(value) {
                     const line = getTrueCallerLineNumber(3); // skip 3 levels
                     this._recognitionStarted = value;
-                    console.log(`set recognition.started = ${value} [line ${line}]`, getSeconds());
+                    // console.log(`set recognition.started = ${value} [line ${line}]`, getSeconds());
                 },
             };
 
@@ -188,7 +162,6 @@
             const userMessageBox = document.getElementById("userMessage");
             const assistantReplyBox = document.getElementById("assistantReplyBox");
             const micIndicator = document.getElementById("micIndicator");
-            const micIcon = document.getElementById("micIcon");
 
             let suppressRecognitionRestart = false;
             let suppressMicIndicatorUpdate = false;
@@ -196,8 +169,6 @@
             let manuallyStopped = false;
             let listening = false;
             let speaking = false;
-            let heard = false;
-            let source = "Voice Demo";
 
             function getLineNumber() {
                 const err = new Error();
@@ -231,7 +202,7 @@
                         document.getElementById("micIndicator").title = "Click to activate mic";
                         break;
                 }
-                console.log("updateMicIndicator(", state, func, line, ")", getSeconds());
+                // console.log("updateMicIndicator(", state, func, line, ")", getSeconds());
             }
 
             function showFlashingPlaceholder(text) {
@@ -263,14 +234,12 @@
                     updateMicIndicator(STATE.VISIBLE, "recognition.onstart", getLineNumber());
                 }
                 recognition.started = true;
-                heard = false;
             };
 
             speechRecognition.onend = () => {
                 recognition.started = false;
 
                 if (!manuallyStopped && !speaking && !suppressRecognitionRestart) {
-                    heard = false;
                     listening = true;
                     setTimeout(() => {
                         if (!recognition.started) {
@@ -291,7 +260,7 @@
 
             speechRecognition.onerror = (event) => {
                 if (manuallyStopped || speaking) {
-                    console.log("recognition.onerror Ignored error due to manual stop or speech:", event.error);
+                    // console.log("recognition.onerror Ignored error due to manual stop or speech:", event.error);
                     return;
                 }
 
@@ -325,10 +294,9 @@
             speechRecognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript.trim();
                 if (speaking) {
-                    console.log("recognition.onresult  Assistant is still speaking...");
+                    // console.log("recognition.onresult  Assistant is still speaking...");
                     return;
                 }
-                heard = true;
                 userMessageBox.value = transcript;
                 sendMessage(transcript);
             };
@@ -340,7 +308,6 @@
 
                     manuallyStopped = false;
                     speaking = false;
-                    heard = false;
                     listening = true;
                     assistantReplyBox.innerHTML = "";
                     updateMicIndicator(STATE.VISIBLE, "micIndicator.addEventListener", getLineNumber());
@@ -389,13 +356,13 @@
                 recognition.started = false;
                 updateMicIndicator(STATE.STOP, "sendMessage fetch", getTrueCallerLineNumber(3));
 
-                console.log("Question:", userMessage, getSeconds());
+                // console.log("Question:", userMessage, getSeconds());
 
                 fetch(apiUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
-                    body: JSON.stringify({ UserMessage: userMessage, Source: source }),
+                    body: JSON.stringify({ UserMessage: userMessage, Source: "Voice Demo" }),
                 })
                     .then(async (res) => {
                         if (!res.ok) {
@@ -407,7 +374,7 @@
                     .then((response) => {
                         const html = JSON.parse(response.result.result).choices[0].message.content.trim();
 
-                        console.log("Answer:", response.result.plainText, getSeconds());
+                        // console.log("Answer:", response.result.plainText, getSeconds());
 
                         assistantReplyBox.innerHTML = html;
                         updateMicIndicator(STATE.STOP, "sendMessage response", getLineNumber());
@@ -424,13 +391,11 @@
 
                         utterance.onerror = () => {
                             speaking = false;
-                            heard = false;
                             if (resumeAfterSpeak) resumeListening();
                         };
 
                         utterance.onend = () => {
                             speaking = false;
-                            heard = false;
                             if (resumeAfterSpeak) resumeListening();
                         };
                     })

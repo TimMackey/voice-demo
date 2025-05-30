@@ -77,9 +77,53 @@
                 font-weight: bold;
                 /* animation: flash-color 1.2s infinite; */
             }
+
+            #modalOverlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                display: none;
+                z-index: 1000;
+            }
+
+            .modal-backdrop {
+                background-color: rgba(0, 0, 0, 0.25);
+                width: 100%;
+                height: 100%;
+                /* backdrop-filter: blur(2px); */
+            }
+
+            .modal-spinner {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #3149d0;
+            }
+
+            .spinner {
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
         </style>
 </head>
 <body>
+
+    <!-- Modal Overlay with Spinner -->
+    <div id="modalOverlay" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-spinner">
+            <i class="fa-solid fa-spinner fa-2xl spinner"></i>
+        </div>
+    </div>
+    <!-- Modal Content -->
+
     <div class="label">GradeScan AI Assistant</div>
     <div class="input-row">
         <span id="micIndicator" title="Click me">
@@ -212,25 +256,25 @@
             function showFlashingPlaceholder(text) {
                 userMessageBox.value = text;
                 userMessageBox.classList.add("flash-placeholder");
-                userMessageBox.readOnly = true;
+                // userMessageBox.readOnly = true;
             }
 
             function setAskMePlaceholder() {
-                userMessageBox.value = "Ask me a question.  I'm listening...";
+                userMessageBox.value = "Type or ask me a question.  I'm listening...";
                 userMessageBox.classList.remove("flash-placeholder");
-                userMessageBox.readOnly = true;
+                // userMessageBox.readOnly = true;
             }
 
             function setAskMeAnotherQuestionPlaceholder() {
-                userMessageBox.value = "Ask me another question.  I'm listening...";
+                userMessageBox.value = "Type or ask me another question.  I'm listening...";
                 userMessageBox.classList.remove("flash-placeholder");
-                userMessageBox.readOnly = true;
+                // userMessageBox.readOnly = true;
             }
 
             function clearPlaceholder() {
                 userMessageBox.value = "";
                 userMessageBox.classList.remove("flash-placeholder");
-                userMessageBox.readOnly = false;
+                // userMessageBox.readOnly = false;
             }
 
             // Speech recognition event bindings
@@ -247,7 +291,7 @@
                 if (!manuallyStopped && !speaking && !suppressRecognitionRestart) {
                     listening = true;
                     setTimeout(() => {
-                        if (!recognition.started) {
+                    if (!recognition.started && !manuallyStopped) {
                             try {
                                 suppressMicIndicatorUpdate = true;
                                 speechRecognition.start();
@@ -358,13 +402,18 @@
             function sendMessage(userMessage) {
                 if (!userMessage.trim()) return;
 
+                // Stop mic and prepare for fetch
                 suppressMicIndicatorUpdate = true;
                 speechRecognition.stop(); // Stop browser mic immediately
                 suppressRecognitionRestart = true;
                 recognition.started = false;
                 updateMicIndicator(STATE.STOP, "sendMessage fetch", getTrueCallerLineNumber(3));
 
-                // console.log("Question:", userMessage, getSeconds());
+                // Enable modal overlay
+                const modalOverlay = document.getElementById("modalOverlay");
+                if (modalOverlay) {
+                    modalOverlay.style.display = "block";
+                }
 
                 fetch(apiUrl, {
                     method: "POST",
@@ -381,9 +430,6 @@
                     })
                     .then((response) => {
                         const html = JSON.parse(response.result.result).choices[0].message.content.trim();
-
-                        // console.log("Answer:", response.result.plainText, getSeconds());
-
                         assistantReplyBox.innerHTML = html;
                         updateMicIndicator(STATE.STOP, "sendMessage response", getLineNumber());
 
@@ -397,21 +443,54 @@
                         resumeAfterSpeak = true;
                         window.speechSynthesis.speak(utterance);
 
-                        utterance.onerror = () => {
+                        utterance.onend = utterance.onerror = () => {
                             speaking = false;
-                            if (resumeAfterSpeak) resumeListening();
-                        };
-
-                        utterance.onend = () => {
-                            speaking = false;
-                            if (resumeAfterSpeak) resumeListening();
+                            resumeAfterSpeak = false;
+                            resumeListening(); // Always resume mic
                         };
                     })
                     .catch((error) => {
                         console.error("catch sendMessage API Error:", error.message || error);
                         assistantReplyBox.innerHTML = error.message || error;
+                    })
+                    .finally(() => {
+                        // Always disable modal overlay at the end
+                        if (modalOverlay) {
+                            modalOverlay.style.display = "none";
+                        }
                     });
             }
+
+            // Clear textarea and stop mic when user clicks inside
+            userMessageBox.addEventListener("focus", () => {
+                // if (recognition.started) {
+                    manuallyStopped = true;
+                    suppressRecognitionRestart = true;
+                    speechRecognition.stop();
+                    recognition.started = false;
+                    listening = false;
+                    updateMicIndicator(STATE.STOP, "focus", getLineNumber());
+                // }
+                userMessageBox.value = "";
+                userMessageBox.classList.remove("flash-placeholder");
+                userMessageBox.readOnly = false;
+            });
+
+            // Send message on Enter and resume mic after response
+            userMessageBox.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault(); // Prevent default newline behavior
+                    const text = userMessageBox.value.trim();
+                    if (text.length > 0) {
+                        userMessageBox.blur();
+                        sendMessage(text);
+                    }
+                }
+            });
+
+            // Show initial state
+            showFlashingPlaceholder("Click the microphone then speak your question.  Or type your question here.");
+            updateMicIndicator(STATE.PROMPT, "init", getLineNumber());
         </script>
-</body>
+    </body>
 </html>

@@ -207,6 +207,18 @@
             const assistantReplyBox = document.getElementById("assistantReplyBox");
             const micIndicator = document.getElementById("micIndicator");
 
+            
+            const promptHeight = userMessageBox.offsetHeight;
+            const headerHeight = assistantReplyBox.offsetHeight;
+            const margins = 50; // plus header/title height
+            const horizontalPadding = 40;
+            const messageHeight = 0;  // 58;  // non-zero when <p-messages></p-messages> is used
+            const viewportHeight = Math.ceil(window.innerHeight);
+            const viewportWidth = window.innerWidth;
+            const listboxHeight = viewportHeight - promptHeight - headerHeight - margins - messageHeight;
+            const listboxWidth = viewportWidth - horizontalPadding;
+                
+
             // State flags
             let suppressRecognitionRestart = false;
             let suppressMicIndicatorUpdate = false;
@@ -418,8 +430,13 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
-                    body: JSON.stringify({ UserMessage: userMessage, Source: "Voice Demo" })
-                })
+                    body: JSON.stringify({  UserMessage: userMessage, 
+                                            Source: "Voice Demo", 
+                                            IsMobile: false,
+                                            WindowWidth: listboxWidth - 18,
+                                            windowHeight: listboxHeight
+                                        })
+                    })
                     .then(async (res) => {
                         if (!res.ok) {
                             const errorData = await res.json();
@@ -428,7 +445,7 @@
                         return res.json();
                     })
                     .then((response) => {
-                        const html = JSON.parse(response.result.result).choices[0].message.content.trim();
+                        const html = JSON.parse(response.result.htmlResult).choices[0].message.content.trim();
                         assistantReplyBox.innerHTML = html;
                         updateMicIndicator(STATE.STOP, "sendMessage response", getLineNumber());
 
